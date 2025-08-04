@@ -1,0 +1,50 @@
+services:
+  user:
+    url: ${USER_SERVICE_URL}
+    base_endpoint: /user
+    endpoints:
+      create: /create
+      getById: /{id}
+      update: /update
+      delete: /{id}
+
+  order:
+    url: ${ORDER_SERVICE_URL}
+    base_endpoint: /order
+    endpoints:
+      create: /create
+      get: /{id}
+      update: /update
+      delete: /{id}
+
+  auth:
+    url: ${AUTHENTICATION_SERVICE_URL}
+    base_endpoint: /auth
+    endpoints:
+      validate: /validate
+      register: /register
+      login: /login
+      refresh: /refresh
+
+  item:
+    url: ${ITEM_SERVICE_URL}
+    base_endpoint: /item
+    endpoints:
+      create: /create
+      get: /{id}
+      update: /update
+      delete: /{id}
+
+  cardInfo:
+    url: ${CARD_SERVICE_URL}
+    base_endpoint: /cardInfo
+    endpoints:
+      create: /create
+      get: /{id}
+      update: /update
+      delete: /{id}
+  api-gateway:
+    url: ${API_GATEWAY_URL}
+    base_endpoint: /registration
+    endpoints:
+      registration: /register

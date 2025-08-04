@@ -1,4 +1,46 @@
+server:
+  port: ${API_GATEWAY_PORT}
+
+logging:
+  level:
+    org.springframework.cloud.gateway : debug
+    org.springframework.security.web.server.WebFilterChainProxy: DEBUG
+    org.springframework.security.web.server.csrf: TRACE
+    org.springframework.security.web.server.authentication: TRACE
+    org.springframework.security.web.server.authorization: TRACE
+
+
 spring:
+  profiles:
+    active: dev
+  config:
+    import:
+      - optional:file:.env
+      - classpath:routes.yml
   application:
     name: ApiGateway
-
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: user-service-user
+              uri: ${USER_SERVICE_URL}
+              predicates:
+                - Path=/user/**
+            - id: user-service-cardInfo
+              uri: ${USER_SERVICE_URL}
+              predicates:
+                - Path=/cardInfo/**
+            - id: auth-service
+              uri: ${AUTHENTICATION_SERVICE_URL}
+              predicates:
+                - Path=/auth/**
+            - id: order-service-order
+              uri: ${ORDER_SERVICE_URL}
+              predicates:
+                - Path=/order/**
+            - id: order-service-item
+              uri: ${ORDER_SERVICE_URL}
+              predicates:
+                - Path=/item/**
