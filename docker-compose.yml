@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: ${API_GATEWAY_DOCKERFILE_PATH}
+    ports:
+      - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      user-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  user-service:
+    build: ${USER_SERVICE_DOCKERFILE_PATH}
+    ports:
+      - "${USER_SERVICE_PORT}:${USER_SERVICE_PORT}"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_PORT=${USER_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=${USER_SERVICE_DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${USER_SERVICE_DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${USER_SERVICE_DB_PASSWORD}
+      - SPRING_REDIS_HOST=${USER_SERVICE_REDIS_HOST}
+      - SPRING_REDIS_PORT=${USER_SERVICE_REDIS_PORT}
+    depends_on:
+      user-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ping -c 1 localhost >/dev/null && echo 'Service is alive' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    networks:
+      - microservices-network
+
+  auth-service:
+    build: ${AUTHENTICATION_SERVICE_DOCKERFILE_PATH}
+    ports:
+      - "${AUTHENTICATION_SERVICE_PORT}:${AUTHENTICATION_SERVICE_PORT}"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_PORT=${AUTHENTICATION_SERVICE_PORT}
+      - SPRING_APPLICATION_ADDRESS=${AUTHENTICATION_SERVICE_ADDRESS}
+      - SPRING_DATASOURCE_URL=${AUTHENTICATION_SERVICE_DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${AUTHENTICATION_SERVICE_DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${AUTHENTICATION_SERVICE_DB_PASSWORD}
+      - CORS_ALLOWED_ORIGIN_PATTERN=${AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN}
+      - CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER=${AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ping -c 1 localhost >/dev/null && echo 'Service is alive' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    networks:
+      - microservices-network
+
+  order-service:
+    build: ${ORDER_SERVICE_DOCKERFILE_PATH}
+    ports:
+      - "${ORDER_SERVICE_PORT}:${ORDER_SERVICE_PORT}"
+    environment:
+      - USER_SERVICE_URL=${USER_SERVICE_URL}
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_PORT=${ORDER_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=${ORDER_SERVICE_DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${ORDER_SERVICE_DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${ORDER_SERVICE_DB_PASSWORD}
+    depends_on:
+      order-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ping -c 1 localhost >/dev/null && echo 'Service is alive' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    networks:
+      - microservices-network
+
+  user-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: userdb
+      MYSQL_ROOT_PASSWORD: ${USER_SERVICE_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - microservices-network
+    volumes:
+      - userdb_data:/var/lib/mysql
+
+  auth-db:
+    container_name: auth-db
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: authdb
+      MYSQL_ROOT_PASSWORD: ${AUTHENTICATION_SERVICE_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - microservices-network
+    volumes:
+      - authdb_data:/var/lib/mysql
+
+  order-db:
+    container_name: order-db
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: orderdb
+      MYSQL_ROOT_PASSWORD: ${ORDER_SERVICE_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - microservices-network
+    volumes:
+      - orderdb_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+    volumes:
+      - redis_data:/data
+
+networks:
+  microservices-network:
+    driver: bridge
+
+volumes:
+  userdb_data:
+  authdb_data:
+  orderdb_data:
+  redis_data:
