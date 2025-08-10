@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api-gateway:
     build: ${API_GATEWAY_DOCKERFILE_PATH}
@@ -14,6 +12,36 @@ services:
         condition: service_healthy
       order-service:
         condition: service_healthy
+    networks:
+      - microservices-network
+
+  payment-service:
+    build: ${PAYMENT_SERVICE_DOCKERFILE_PATH}
+    ports:
+      - "${PAYMENT_SERVICE_PORT}:${PAYMENT_SERVICE_PORT}"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_PORT=${PAYMENT_SERVICE_PORT}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE_PORT=${MONGO_INITDB_DATABASE_PORT}
+      - MONGO_DB_URI=${MONGO_DB_URI}
+      - KAFKA_PORT=${KAFKA_PLAINTEXT_PORT}
+      - KAFKA_ADVERTISED_LISTENERS=${KAFKA_ADVERTISED_LISTENERS}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - RANDOM_API_URI=${RANDOM_NUMBER_API_URI}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "ping -c 1 localhost >/dev/null && echo 'Service is alive' || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
     networks:
       - microservices-network
 
@@ -79,8 +107,11 @@ services:
       - SPRING_DATASOURCE_URL=${ORDER_SERVICE_DB_URL}
       - SPRING_DATASOURCE_USERNAME=${ORDER_SERVICE_DB_USER}
       - SPRING_DATASOURCE_PASSWORD=${ORDER_SERVICE_DB_PASSWORD}
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
     depends_on:
       order-db:
+        condition: service_healthy
+      kafka-gateway:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "sh", "-c", "ping -c 1 localhost >/dev/null && echo 'Service is alive' || exit 1"]
@@ -92,6 +123,8 @@ services:
       - microservices-network
 
   user-db:
+    ports:
+      - "3306:3306"
     image: mysql:8.0
     environment:
       MYSQL_DATABASE: userdb
@@ -108,6 +141,8 @@ services:
       - userdb_data:/var/lib/mysql
 
   auth-db:
+    ports:
+      - "3307:3306"
     container_name: auth-db
     image: mysql:8.0
     environment:
@@ -125,6 +160,8 @@ services:
       - authdb_data:/var/lib/mysql
 
   order-db:
+    ports:
+      - "3308:3306"
     container_name: order-db
     image: mysql:8.0
     environment:
@@ -153,6 +190,50 @@ services:
     volumes:
       - redis_data:/data
 
+  mongodb:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "${MONGO_INITDB_DATABASE_PORT}:${MONGO_INITDB_DATABASE_PORT}"
+    healthcheck:
+      test: >
+        bash -c "mongosh -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --eval 'db.adminCommand(\"ping\")'"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+
+    networks:
+      - microservices-network
+
+  kafka-gateway:
+    image: bitnami/kafka:latest
+    container_name: kafka-gateway
+    ports:
+      - "${KAFKA_PLAINTEXT_PORT}:${KAFKA_PLAINTEXT_PORT}"
+      - "${KAFKA_PLAINTEXT_HOST_PORT}:${KAFKA_PLAINTEXT_HOST_PORT}"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:${KAFKA_PLAINTEXT_PORT},PLAINTEXT_HOST://:${KAFKA_PLAINTEXT_HOST_PORT},CONTROLLER://:${KAFKA_CONTROLLER_PORT}
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-gateway:${KAFKA_PLAINTEXT_PORT},PLAINTEXT_HOST://localhost:${KAFKA_PLAINTEXT_HOST_PORT}
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-gateway:${KAFKA_CONTROLLER_PORT}
+      - KAFKA_KRAFT_CLUSTER_ID=r4zt_wrqTRuT7W2NJsB_GA
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:${KAFKA_PLAINTEXT_PORT} --list || exit 1" ]
+    volumes:
+      - kafka_data:/bitnami/kafka
+    networks:
+      - microservices-network
+
 networks:
   microservices-network:
     driver: bridge
@@ -162,3 +243,4 @@ volumes:
   authdb_data:
   orderdb_data:
   redis_data:
+  kafka_data:
