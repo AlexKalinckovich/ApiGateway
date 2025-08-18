@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+  namespace: microservices
+data:
+  AUTHENTICATION_SERVICE_URL: "http://auth-service:8081"
+  SPRING_DATASOURCE_URL: "jdbc:mysql://auth-db:3306/authdb?createDatabaseIfNotExist=true&autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
+  SPRING_APPLICATION_PORT: "8081"
+  SERVER_ADDRESS: "0.0.0.0"
+  CORS_ALLOWED_ORIGIN_PATTERN: "http://localhost:*"
+  AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER: ","

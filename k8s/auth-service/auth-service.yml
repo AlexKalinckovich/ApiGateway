@@ -1,0 +1,77 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: microservices
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: apigateway-auth-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+              name: http
+          envFrom:
+            - configMapRef:
+                name: auth-service-config
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secrets
+                  key: AUTHENTICATION_SERVICE_DB_USER
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secrets
+                  key: AUTHENTICATION_SERVICE_DB_PASSWORD
+            - name: SPRING_APPLICATION_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: SPRING_APPLICATION_PORT
+            - name: CORS_ALLOWED_ORIGIN_PATTERN
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: CORS_ALLOWED_ORIGIN_PATTERN
+            - name: AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: microservices
+  labels:
+    app: auth-service
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+  type: ClusterIP
+#kubectl delete -R -f ./k8s

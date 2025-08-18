@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: microservices
+data:
+  API_GATEWAY_URL: "http://api-gateway:8083"
+  API_GATEWAY_PORT: "8083"
+  API_GATEWAY_PROFILE: dev
+  SERVER_ADDRESS: "0.0.0.0"
