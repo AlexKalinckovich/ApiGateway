@@ -18,6 +18,8 @@ target/
 *.iws
 *.iml
 *.ipr
+./k8s/secret.yml
+./k8s/secrets
 
 ### NetBeans ###
 /nbproject/private/

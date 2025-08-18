@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: microservices
+data:
+  KAFKA_PLAINTEXT_PORT: "9092"
+  KAFKA_PLAINTEXT_HOST_PORT: "29092"
+  KAFKA_CONTROLLER_PORT: "29093"
+
