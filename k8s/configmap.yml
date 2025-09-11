@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: microservices
+data:
+  RANDOM_NUMBER_API_URI: "https://www.randomnumberapi.com/api/v1.0/random"
+  DOCKER_USERNAME: "alexkalinck"

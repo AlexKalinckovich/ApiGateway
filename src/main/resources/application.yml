@@ -12,7 +12,7 @@ logging:
 
 spring:
   profiles:
-    active: dev
+    active: ${API_GATEWAY_PROFILE}
   config:
     import:
       - optional:file:.env
