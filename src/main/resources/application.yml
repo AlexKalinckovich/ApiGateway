@@ -1,5 +1,5 @@
 server:
-  port: ${API_GATEWAY_PORT}
+  port: ${API_GATEWAY_PORT:8083}
 
 logging:
   level:
@@ -9,14 +9,14 @@ logging:
     org.springframework.security.web.server.authentication: TRACE
     org.springframework.security.web.server.authorization: TRACE
 
-
 spring:
   profiles:
-    active: ${API_GATEWAY_PROFILE}
+    active: ${API_GATEWAY_PROFILE:dev}
   config:
     import:
       - optional:file:.env
       - classpath:routes.yml
+      - classpath:error-message.properties
   application:
     name: ApiGateway
   cloud:
@@ -25,22 +25,27 @@ spring:
         webflux:
           routes:
             - id: user-service-user
-              uri: ${USER_SERVICE_URL}
+              uri: ${USER_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/user/**
             - id: user-service-cardInfo
-              uri: ${USER_SERVICE_URL}
+              uri: ${USER_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/cardInfo/**
             - id: auth-service
-              uri: ${AUTHENTICATION_SERVICE_URL}
+              uri: ${AUTHENTICATION_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/auth/**
             - id: order-service-order
-              uri: ${ORDER_SERVICE_URL}
+              uri: ${ORDER_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/order/**
             - id: order-service-item
-              uri: ${ORDER_SERVICE_URL}
+              uri: ${ORDER_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/item/**
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/payment/**
+

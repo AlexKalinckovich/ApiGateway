@@ -20,6 +20,13 @@ spec:
         - name: auth-service
           image: apigateway-auth-service
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           ports:
             - containerPort: 8081
               name: http
@@ -74,4 +81,3 @@ spec:
       port: 8081
       targetPort: 8081
   type: ClusterIP
-#kubectl delete -R -f ./k8s

@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -23,6 +22,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Arrays;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -31,8 +31,8 @@ public class SecurityConfig {
 
     private static final String ALL_ENDPOINTS = "/**";
 
-    @Value("${services.api-gateway.url}")
-    private String apiGatewayUri;
+    @Value("${services.frontend.url:http://localhost}")
+    private String frontendUrl;
 
     @Value("${services.auth.base_endpoint}")
     private String authBaseEndpoint;
@@ -44,7 +44,7 @@ public class SecurityConfig {
     private String authValidateRoute;
 
     @Value("${services.api-gateway.base_endpoint}")
-    private String registrationBaseEndpoint;
+    private String apiBaseEndpoint;
 
     private final AuthenticationServiceClient authenticationServiceClient;
 
@@ -59,46 +59,67 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Profile("production")
     public CorsConfigurationSource corsConfigurationSource() {
-        final CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin(apiGatewayUri);
-        config.addAllowedMethod("*");
-        config.addAllowedHeader("*");
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(Arrays.asList(frontendUrl));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowCredentials(true);
-        config.addExposedHeader("X-XSRF-TOKEN");
+        config.setExposedHeaders(Arrays.asList("X-XSRF-TOKEN"));
         config.setMaxAge(Duration.ofHours(1));
 
-        final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration(ALL_ENDPOINTS, config);
         return source;
     }
 
     @Bean
     @Profile("dev")
-    public Customizer<ServerHttpSecurity.CsrfSpec> csrfSpec() {
-        return ServerHttpSecurity.CsrfSpec::disable;
+    public CorsConfigurationSource corsConfigurationSourceDev() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(Arrays.asList("*"));
+        config.setAllowedMethods(Arrays.asList("*"));
+        config.setAllowedHeaders(Arrays.asList("*"));
+        config.setAllowCredentials(true);
+        config.setExposedHeaders(Arrays.asList("X-XSRF-TOKEN"));
+        config.setMaxAge(Duration.ofHours(1));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration(ALL_ENDPOINTS, config);
+        return source;
+    }
+
+    @Bean
+    @Profile("dev")
+    public SecurityWebFilterChain securityWebFilterChainDev(ServerHttpSecurity http) {
+        return http
+                .csrf(csrf -> csrf.disable()) // CSRF отключен в dev
+                .cors(cors -> cors.configurationSource(corsConfigurationSourceDev())) // CORS включен с разрешением всего
+                .authorizeExchange(exchanges -> exchanges
+                        .pathMatchers(authBaseEndpoint + authLoginRoute).permitAll()
+                        .pathMatchers(authBaseEndpoint + authValidateRoute).permitAll()
+                        .pathMatchers(apiBaseEndpoint + ALL_ENDPOINTS).permitAll()
+                        .anyExchange().authenticated()
+                )
+                .addFilterAt(authenticationWebFilter(), SecurityWebFiltersOrder.AUTHENTICATION)
+                .build();
     }
 
     @Bean
     @Profile("production")
-    public Customizer<ServerHttpSecurity.CsrfSpec> csrfSpecProduction() {
-        return csrf -> {
-            csrf.csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse());
-            csrf.csrfTokenRequestHandler(csrfTokenRequestHandler());
-            csrf.requireCsrfProtectionMatcher(this::requireCsrfProtection);
-        };
-    }
-
-    @Bean
-    public SecurityWebFilterChain securityWebFilterChain(final ServerHttpSecurity http,
-                                                         final Customizer<ServerHttpSecurity.CsrfSpec> csrfSpec) {
+    public SecurityWebFilterChain securityWebFilterChainProduction(ServerHttpSecurity http) {
         return http
-                .csrf(csrfSpec)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> {
+                    csrf.csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse());
+                    csrf.csrfTokenRequestHandler(csrfTokenRequestHandler());
+                    csrf.requireCsrfProtectionMatcher(this::requireCsrfProtection);
+                })
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS с настройками для production
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(registrationBaseEndpoint + ALL_ENDPOINTS).permitAll()
                         .pathMatchers(authBaseEndpoint + authLoginRoute).permitAll()
                         .pathMatchers(authBaseEndpoint + authValidateRoute).permitAll()
+                        .pathMatchers(apiBaseEndpoint + ALL_ENDPOINTS).permitAll()
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(authenticationWebFilter(), SecurityWebFiltersOrder.AUTHENTICATION)
@@ -106,18 +127,17 @@ public class SecurityConfig {
     }
 
     private Mono<ServerWebExchangeMatcher.MatchResult> requireCsrfProtection(
-            @NonNull final ServerWebExchange exchange) {
+            @NonNull ServerWebExchange exchange) {
 
         final String method = exchange.getRequest().getMethod().name();
         final String path = exchange.getRequest().getPath().value();
 
         if (method.matches("GET|HEAD|OPTIONS|TRACE") ||
                 path.startsWith(authBaseEndpoint) ||
-                path.startsWith(registrationBaseEndpoint)) {
+                path.startsWith(apiBaseEndpoint)) {
             return ServerWebExchangeMatcher.MatchResult.notMatch();
         }
 
         return ServerWebExchangeMatcher.MatchResult.match();
     }
 }
-

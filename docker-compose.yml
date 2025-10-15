@@ -3,11 +3,9 @@ services:
     build: ${API_GATEWAY_DOCKERFILE_PATH}
     ports:
       - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - USER_SERVICE_URL=${USER_SERVICE_URL}
-      - ORDER_SERVICE_URL=${ORDER_SERVICE_URL}
-      - AUTHENTICATION_SERVICE_URL=${AUTHENTICATION_SERVICE_URL}
+    env_file:
+      - envs/microservice/api-gateway.env
+      - envs/common.env
     depends_on:
       user-service:
         condition: service_healthy
@@ -15,6 +13,32 @@ services:
         condition: service_healthy
       order-service:
         condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "ping -c 1 localhost >/dev/null && echo 'Service is alive' || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    networks:
+      - microservices-network
+
+  react-frontend:
+    build: ${REACT_FRONTEND_DOCKERFILE_PATH}
+    ports:
+      - "${REACT_FRONTEND_PORT}:80"
+    env_file:
+      - envs/common.env
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     networks:
       - microservices-network
 
@@ -22,18 +46,13 @@ services:
     build: ${PAYMENT_SERVICE_DOCKERFILE_PATH}
     ports:
       - "${PAYMENT_SERVICE_PORT}:${PAYMENT_SERVICE_PORT}"
+    env_file:
+      - /envs/common.env
+      - /envs/mongo/mongodb.env
+      - /envs/messageBroker/kafka.env
+      - /envs/microservice/payment-service.env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_APPLICATION_PORT=${PAYMENT_SERVICE_PORT}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
-      - MONGO_INITDB_DATABASE_PORT=${MONGO_INITDB_DATABASE_PORT}
-      - MONGO_DB_URI=${MONGO_DB_URI}
-      - KAFKA_PORT=${KAFKA_PLAINTEXT_PORT}
-      - KAFKA_ADVERTISED_LISTENERS=${KAFKA_ADVERTISED_LISTENERS}
-      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
-      - RANDOM_API_URI=${RANDOM_NUMBER_API_URI}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -52,14 +71,12 @@ services:
     build: ${USER_SERVICE_DOCKERFILE_PATH}
     ports:
       - "${USER_SERVICE_PORT}:${USER_SERVICE_PORT}"
+    env_file:
+      - /envs/mysql/userdb.env
+      - /envs/nosql/redis/redis.env
+      - /envs/microservice/user-service.env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_APPLICATION_PORT=${USER_SERVICE_PORT}
-      - SPRING_DATASOURCE_URL=${USER_SERVICE_DB_URL}
-      - SPRING_DATASOURCE_USERNAME=${USER_SERVICE_DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${USER_SERVICE_DB_PASSWORD}
-      - SPRING_REDIS_HOST=${USER_SERVICE_REDIS_HOST}
-      - SPRING_REDIS_PORT=${USER_SERVICE_REDIS_PORT}
     depends_on:
       user-db:
         condition: service_healthy
@@ -78,15 +95,11 @@ services:
     build: ${AUTHENTICATION_SERVICE_DOCKERFILE_PATH}
     ports:
       - "${AUTHENTICATION_SERVICE_PORT}:${AUTHENTICATION_SERVICE_PORT}"
+    env_file:
+      - envs/mysql/authdb.env
+      - envs/microservice/auth-service.env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_APPLICATION_PORT=${AUTHENTICATION_SERVICE_PORT}
-      - SPRING_APPLICATION_ADDRESS=${AUTHENTICATION_SERVICE_ADDRESS}
-      - SPRING_DATASOURCE_URL=${AUTHENTICATION_SERVICE_DB_URL}
-      - SPRING_DATASOURCE_USERNAME=${AUTHENTICATION_SERVICE_DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${AUTHENTICATION_SERVICE_DB_PASSWORD}
-      - CORS_ALLOWED_ORIGIN_PATTERN=${AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN}
-      - CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER=${AUTHENTICATION_SERVICE_CORS_ALLOWED_ORIGIN_PATTERN_SPLITTER}
     depends_on:
       auth-db:
         condition: service_healthy
@@ -103,14 +116,13 @@ services:
     build: ${ORDER_SERVICE_DOCKERFILE_PATH}
     ports:
       - "${ORDER_SERVICE_PORT}:${ORDER_SERVICE_PORT}"
+    env_file:
+      - envs/common.env
+      - envs/microservice/order-service.env
+      - envs/mysql/orderdb.env
+      - envs/messageBroker/kafka.env
     environment:
-      - USER_SERVICE_URL=${USER_SERVICE_URL}
-      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_APPLICATION_PORT=${ORDER_SERVICE_PORT}
-      - SPRING_DATASOURCE_URL=${ORDER_SERVICE_DB_URL}
-      - SPRING_DATASOURCE_USERNAME=${ORDER_SERVICE_DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${ORDER_SERVICE_DB_PASSWORD}
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
     depends_on:
       order-db:
         condition: service_healthy
@@ -129,9 +141,8 @@ services:
     ports:
       - "3306:3306"
     image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: userdb
-      MYSQL_ROOT_PASSWORD: ${USER_SERVICE_DB_PASSWORD}
+    env_file:
+      - envs/mysql/userdb.env
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
@@ -148,9 +159,8 @@ services:
       - "3307:3306"
     container_name: auth-db
     image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: authdb
-      MYSQL_ROOT_PASSWORD: ${AUTHENTICATION_SERVICE_DB_PASSWORD}
+    env_file:
+      - envs/mysql/authdb.env
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
@@ -167,9 +177,8 @@ services:
       - "3308:3306"
     container_name: order-db
     image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: orderdb
-      MYSQL_ROOT_PASSWORD: ${ORDER_SERVICE_DB_PASSWORD}
+    env_file:
+      - envs/mysql/orderdb.env
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
@@ -183,6 +192,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    env_file:
+      - envs/nosql/redis/redis.env
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -195,10 +206,8 @@ services:
 
   mongodb:
     image: mongo:latest
-    environment:
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    env_file:
+      - envs/mongo/mongodb.env
     ports:
       - "${MONGO_INITDB_DATABASE_PORT}:${MONGO_INITDB_DATABASE_PORT}"
     healthcheck:
@@ -208,8 +217,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-
-
     networks:
       - microservices-network
 
@@ -219,17 +226,12 @@ services:
     ports:
       - "${KAFKA_PLAINTEXT_PORT}:${KAFKA_PLAINTEXT_PORT}"
       - "${KAFKA_PLAINTEXT_HOST_PORT}:${KAFKA_PLAINTEXT_HOST_PORT}"
+    env_file:
+      - envs/messageBroker/kafka.env
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:${KAFKA_PLAINTEXT_PORT},PLAINTEXT_HOST://:${KAFKA_PLAINTEXT_HOST_PORT},CONTROLLER://:${KAFKA_CONTROLLER_PORT}
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-gateway:${KAFKA_PLAINTEXT_PORT},PLAINTEXT_HOST://localhost:${KAFKA_PLAINTEXT_HOST_PORT}
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-gateway:${KAFKA_CONTROLLER_PORT}
-      - KAFKA_KRAFT_CLUSTER_ID=r4zt_wrqTRuT7W2NJsB_GA
-      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_PLAINTEXT_PORT=${KAFKA_PLAINTEXT_PORT}
+      - KAFKA_PLAINTEXT_HOST_PORT=${KAFKA_PLAINTEXT_HOST_PORT}
+      - KAFKA_CONTROLLER_PORT=${KAFKA_CONTROLLER_PORT}
     healthcheck:
       test: [ "CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:${KAFKA_PLAINTEXT_PORT} --list || exit 1" ]
     volumes:
@@ -239,6 +241,7 @@ services:
 
 networks:
   microservices-network:
+    name: microservices-network
     driver: bridge
 
 volumes:

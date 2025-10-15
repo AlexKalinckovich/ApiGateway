@@ -12,7 +12,7 @@ spec:
       storage: 1Gi
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: auth-db
   namespace: microservices
@@ -32,6 +32,13 @@ spec:
         - name: mysql
           image: mysql:8.0
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "100Mi"
+            limits:
+              cpu: "300m"
+              memory: "100Mi"
           ports:
             - containerPort: 3306
               name: mysql
@@ -50,6 +57,7 @@ spec:
         - name: mysql-data
           persistentVolumeClaim:
             claimName: authdb-pvc
+  serviceName: auth-db
 ---
 apiVersion: v1
 kind: Service

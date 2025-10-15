@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: microservices
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: apigateway-order-service
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          ports:
+            - containerPort: 8082
+          env:
+            - name: DOCKER_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DOCKER_USERNAME
+            - name: USER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: user-service-config
+                  key: USER_SERVICE_URL
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: ORDER_SERVICE_PROFILE
+            - name: SPRING_APPLICATION_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: ORDER_SERVICE_PORT
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-secrets
+                  key: ORDER_SERVICE_DB_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-secrets
+                  key: ORDER_SERVICE_DB_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-secrets
+                  key: ORDER_SERVICE_DB_PASSWORD
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secrets
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: SERVER_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: SERVER_ADDRESS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: microservices
+  labels:
+    app: order-service
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+  type: ClusterIP
