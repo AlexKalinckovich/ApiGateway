@@ -5,5 +5,5 @@ import jakarta.validation.Valid;
 
 public record GatewayRegistrationRequest(
         @Valid UserCreateRequest userData,
-        @Valid AuthRegisterRequest credentials
+        @Valid AuthCredentialsRequest credentials
 ) {}

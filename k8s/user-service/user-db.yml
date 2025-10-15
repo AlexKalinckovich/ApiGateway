@@ -11,7 +11,7 @@ spec:
       storage: 1Gi
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: user-db
   namespace: microservices
@@ -28,6 +28,13 @@ spec:
       containers:
         - name: mysql
           image: mysql:8.0
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "100Mi"
+            limits:
+              cpu: "300m"
+              memory: "100Mi"
           ports:
             - containerPort: 3306
           env:
@@ -45,6 +52,7 @@ spec:
         - name: mysql-data
           persistentVolumeClaim:
             claimName: userdb-pvc
+  serviceName: user-db
 ---
 apiVersion: v1
 kind: Service
@@ -52,7 +60,7 @@ metadata:
   name: user-db
   namespace: microservices
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: user-db
   ports:

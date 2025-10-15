@@ -2,7 +2,7 @@ package com.example.ApiGateway.dto.auth;
 
 import com.example.ApiGateway.dto.user.UserResponseDto;
 
-public record RegistrationResponse(
+public record AuthenticationResponse(
     UserResponseDto userResponseDto,
-    AuthResponse authResponse
+    TokenResponse tokenResponse
 ) { }

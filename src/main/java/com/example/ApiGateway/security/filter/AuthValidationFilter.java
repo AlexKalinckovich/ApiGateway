@@ -23,11 +23,16 @@ import java.util.List;
 public class AuthValidationFilter implements WebFilter {
 
     private static final String BEARER = "Bearer ";
-    private static final int BEARER_LENGTH = BEARER.length();
-    private static final String REGISTRATION_ENDPOINT = "/registration";
+    private static final String UNKNOWN_USERNAME = "unknown";
 
-    @Value("${services.auth.base_endpoint}")
-    private String authBaseEndpoint;
+    private static final int BEARER_LENGTH = BEARER.length();
+    private static final int JWT_CHUNKS_COUNT = 3;
+
+    @Value("${services.api-gateway.base_endpoint}")
+    private String apiGatewayBaseEndpoint;
+
+    @Value("${services.auth.endpoints.validate}")
+    private String authValidationEndpoint;
 
     private final AuthenticationServiceClient authenticationServiceClient;
 
@@ -73,15 +78,15 @@ public class AuthValidationFilter implements WebFilter {
     }
 
     private boolean isWhitelisted(final String path) {
-        return path.startsWith(authBaseEndpoint) || path.startsWith(REGISTRATION_ENDPOINT);
+        return path.startsWith(apiGatewayBaseEndpoint) || path.startsWith(authValidationEndpoint);
     }
 
     private String extractNameFromToken(final String token) {
         final Base64.Decoder decoder = Base64.getUrlDecoder();
         try {
             final String[] chunks = token.split("\\.");
-            if (chunks.length != 3) {
-                return "unknown";
+            if (chunks.length != JWT_CHUNKS_COUNT) {
+                return UNKNOWN_USERNAME;
             }
             final String payload = new String(decoder.decode(chunks[1]));
             final JsonObject json = JsonParser

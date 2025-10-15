@@ -53,6 +53,13 @@ spec:
         - name: kafka
           image: bitnami/kafka:latest
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "100Mi"
+            limits:
+              cpu: "300m"
+              memory: "100Mi"
           ports:
             - containerPort: 9092
               name: plaintext

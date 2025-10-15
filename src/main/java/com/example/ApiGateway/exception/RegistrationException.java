@@ -5,7 +5,6 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 public class RegistrationException extends RuntimeException {
-    // Getters
     private final HttpStatus status;
     private final String responseBody;
 

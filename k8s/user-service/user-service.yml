@@ -15,8 +15,15 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: apigateway-user-service
+          image: docker.io/alexkalinck/apigateway-user-service:1.0
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           ports:
             - containerPort: 8080
           envFrom:

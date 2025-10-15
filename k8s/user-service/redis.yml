@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
   namespace: microservices
@@ -16,6 +16,13 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "50Mi"
+            limits:
+              cpu: "200m"
+              memory: "100Mi"
           ports:
             - containerPort: 6379
           readinessProbe:
@@ -34,6 +41,7 @@ spec:
       volumes:
         - name: redis-data
           emptyDir: {}
+  serviceName: redis
 ---
 apiVersion: v1
 kind: Service
@@ -46,4 +54,5 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
-  type: ClusterIP
+  clusterIP: None
+
