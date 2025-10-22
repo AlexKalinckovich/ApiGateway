@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: payment-service-config
-  namespace: microservices
+  namespace: alexkalinck-dev
 data:
   PAYMENT_SERVICE_PORT: "8085"
   KAFKA_BOOTSTRAP_SERVERS: "kafka-gateway-headless:9092"

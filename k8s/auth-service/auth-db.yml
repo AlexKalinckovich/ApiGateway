@@ -3,7 +3,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: authdb-pvc
-  namespace: microservices
+  namespace: alexkalinck-dev
 spec:
   accessModes:
     - ReadWriteOnce
@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: auth-db
-  namespace: microservices
+  namespace: alexkalinck-dev
   labels:
     app: auth-db
 spec:
@@ -35,10 +35,10 @@ spec:
           resources:
             requests:
               cpu: "200m"
-              memory: "100Mi"
+              memory: "512Mi"
             limits:
               cpu: "300m"
-              memory: "100Mi"
+              memory: "1Gi"
           ports:
             - containerPort: 3306
               name: mysql
@@ -49,7 +49,13 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: auth-service-secrets
-                  key: AUTHENTICATION_SERVICE_DB_PASSWORD
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: MYSQL_ROOT_HOST
+              value: "%"
+            - name: MYSQL_INNODB_BUFFER_POOL_SIZE
+              value: "256M"
+            - name: MYSQL_INNODB_LOG_FILE_SIZE
+              value: "128M"
           volumeMounts:
             - name: mysql-data
               mountPath: /var/lib/mysql
@@ -63,14 +69,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: auth-db
-  namespace: microservices
-  labels:
-    app: auth-db
+  namespace: alexkalinck-dev
 spec:
+  clusterIP: None
   selector:
     app: auth-db
   ports:
-    - name: mysql
-      port: 3306
+    - port: 3306
       targetPort: 3306
-  type: ClusterIP

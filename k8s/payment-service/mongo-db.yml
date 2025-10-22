@@ -1,12 +1,25 @@
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
 metadata:
-  name: mongodb-headless
-  namespace: microservices
+  name: mongodb-pvc
+  namespace: alexkalinck-dev
   labels:
     app: mongodb
 spec:
-  clusterIP: None
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: alexkalinck-dev
+  labels:
+    app: mongodb
+spec:
   selector:
     app: mongodb
   ports:
@@ -15,12 +28,13 @@ spec:
       targetPort: 27017
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: mongodb
-  namespace: microservices
+  namespace: alexkalinck-dev
+  labels:
+    app: mongodb
 spec:
-  serviceName: "mongodb-headless"
   replicas: 1
   selector:
     matchLabels:
@@ -32,23 +46,18 @@ spec:
     spec:
       containers:
         - name: mongodb
-          image: mongo:latest
+          image: docker.io/mongo:6.0
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: "200m"
-              memory: "100Mi"
+              cpu: "100m"
+              memory: "256Mi"
             limits:
-              cpu: "300m"
-              memory: "100Mi"
+              cpu: "200m"
+              memory: "512Mi"
           ports:
             - containerPort: 27017
               name: mongo
-          envFrom:
-            - configMapRef:
-                name: payment-service-config
-            - secretRef:
-                name: payment-service-secrets
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -60,15 +69,30 @@ spec:
                 secretKeyRef:
                   name: payment-service-secrets
                   key: MONGO_INITDB_ROOT_PASSWORD
+            - name: MONGO_INITDB_DATABASE
+              value: "paymentdb"
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db
-  volumeClaimTemplates:
-    - metadata:
-        name: mongo-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: standard
-        resources:
-          requests:
-            storage: 1Gi
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 10
+      volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: mongodb-pvc

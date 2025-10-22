@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: payment-service
-  namespace: microservices
+  namespace: alexkalinck-dev
 spec:
   replicas: 1
   selector:
@@ -15,15 +15,15 @@ spec:
     spec:
       containers:
         - name: payment
-          image: apigateway-payment-service
+          image: docker.io/alexkalinck/apigateway-payment-service:1.0
           imagePullPolicy: IfNotPresent
           resources:
             requests:
               cpu: "100m"
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "512Mi"
           ports:
             - containerPort: 8085
               name: http
@@ -47,16 +47,25 @@ spec:
                   name: payment-service-secrets
                   key: MONGO_DB_URI
             - name: SERVER_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: payment-service-config
-                  key: PAYMENT_SERVICE_PORT
+              value: "8085"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
+              value: "PLAINTEXT"
+            - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+              value: "payment-group"
+            - name: SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET
+              value: "earliest"
+            - name: SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS
+              value: "30000"
+            - name: SPRING_KAFKA_PROPERTIES_REQUEST_TIMEOUT_MS
+              value: "40000"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: payment-service
-  namespace: microservices
+  namespace: alexkalinck-dev
   labels:
     app: payment-service
 spec:
